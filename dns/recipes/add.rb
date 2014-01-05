@@ -1,5 +1,5 @@
 #!/usr/local/bin/ruby
 
-require './default'
+require './base'
 
 DnsActions.new().add_hostname()

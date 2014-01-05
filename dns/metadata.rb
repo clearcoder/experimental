@@ -1,8 +1,8 @@
 maintainer "Mustafa Munjid"
-description "Update dns when cluster members."
+description "Update dns when cluster members join/leave the cluster."
 version "0.1"
 name "dns"
 
-recipe "dns::default", "Default recipe"
-recipe "dns::add_instance", "Add an instance's hostname to the dns when it comes up."
-recipe "dns::remove_instances", "Remove an instance's hostname from dns when it leaves."
+recipe "dns::base", "Contains base script."
+recipe "dns::add", "Add an instance's hostname to the dns when it comes up."
+recipe "dns::remove", "Remove an instance's hostname from dns when it leaves."
