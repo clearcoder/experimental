@@ -4,7 +4,8 @@ experimental
 Contains source code of experimental nature.
 
 
-This customization needs to be done to the default node settings. It is added here as cookbook attributes.
+This customization needs to be done to the default node settings. They add required gems to the node and should be 
+set before the dependencies cookbook is run on the node. It is set in the stack settings from OpsWorks console. 
 
 
 {
