@@ -14,5 +14,9 @@ set before the dependencies cookbook is run on the node. It is set in the stack 
             "eat": "0.1.8",
             "aws-sdk": "1.31.3"
         }
+    },
+    "dns": {
+        "access_key_id": "AKIAIYOUKWDFLG72L7YA",
+        "secret_access_key": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     }
 }
