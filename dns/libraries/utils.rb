@@ -1,24 +1,4 @@
-
-OpsWorks::InternalGems.internal_gem_package('eat', '0.1.8')
-#if defined?(OpsWorks) && defined?(OpsWorks::InternalGems)
-#    OpsWorks::InternalGems.internal_gem_package('eat', '0.1.8')
-#else
-#    chef_gem 'eat' do
-#        action :install
-#        version '>= 0.1.8'
-#    end
-#end
-
-require 'eat'
-
-#if defined?(OpsWorks) && defined?(OpsWorks::InternalGems)
-#    OpsWorks::InternalGems.internal_gem_package('aws-sdk', '1.31.3')
-#else
-#    chef_gem 'aws-sdk' do
-#        action :install
-#        version '>= 1.31.3'
-#    end
-#end
+#require 'eat'
 
 require 'aws-sdk'
 

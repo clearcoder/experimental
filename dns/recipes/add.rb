@@ -1,5 +1,5 @@
 #!/usr/local/bin/ruby
 
-require './base'
+require File.join(File.dirname(__FILE__), 'base')
 
 DnsActions.new().add_hostname()
