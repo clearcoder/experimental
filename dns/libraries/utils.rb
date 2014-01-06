@@ -1,6 +1,7 @@
-#require 'eat'
-
 require 'aws-sdk'
+require "net/http"
+require "uri"
+
 
 module Utils
     @@AWS_IPV4_URL = 'http://169.254.169.254/latest/meta-data/public-ipv4'
@@ -93,6 +94,19 @@ class DnsActions
         begin
             fqdn = nil
             return get_hostname + "." + get_zonename
+        rescue => err
+            print "Exception: #{err}"
+            err
+        end 
+    end
+
+    def eat(url)
+        begin
+            uri = URI.parse(url)
+            http = Net::HTTP.new(uri.host, uri.port)
+            request = Net::HTTP::Get.new(uri.request_uri)
+            response = http.request(request)
+            return response.body
         rescue => err
             print "Exception: #{err}"
             err
