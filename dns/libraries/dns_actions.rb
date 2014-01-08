@@ -11,8 +11,8 @@ class DnsActions
             dns = node[:dns]
         else
             dns[:balancer_hostname] = 'balancer1'
-            dns[:balancer_ttl] = 60 
-            dns[:node_ttl] = 300 
+            dns[:balancer_ttl] = 300
+            dns[:node_ttl] = 60 
             dns[:zone_id] = '/hostedzone/Z98DD1X7I9M6Z'
         end
 
