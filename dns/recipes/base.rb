@@ -5,7 +5,7 @@ require 'logger'
 
 #TODO: Fix for ruby > 1.9.1
 #http://stackoverflow.com/questions/4333286/ruby-require-vs-require-relative-best-practice-to-workaround-running-in-both
-require File.join(File.dirname(__FILE__), '../libraries/utils')
+require File.join(File.dirname(__FILE__), '../libraries/dns_actions')
 
 #Temporarily read aws credentials from file until we can get reading attributes from node to work
 #AWS.config(:access_key_id => node[:dns][:access_key_id], :secret_access_key => node[:dns][:secret_access_key])
