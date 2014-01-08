@@ -1,4 +1,5 @@
 require 'aws-sdk'
+require 'logger'
 require File.join(File.dirname(__FILE__), 'utils')
 
 class DnsActions
@@ -6,7 +7,7 @@ class DnsActions
     def initialize()
 
         dns = {}
-        if defined? (node) #is defined by chef and we need these lines below for debugging outside chef
+        if defined?(node) #is defined by chef and we need these lines below for debugging outside chef
             dns = node[:dns]
         else
             dns[:balancer_hostname] = 'balancer1'
@@ -20,8 +21,12 @@ class DnsActions
         @balancer_ttl = dns[:balancer_ttl] 
         @node_ttl = dns[:node_ttl]
 
-        @dnsClient = AWS::Route53.new()
+        @r53 = AWS::Route53.new()
         @rrsets = AWS::Route53::HostedZone.new(@zone_id).resource_record_sets
+        
+        @logger = Logger.new(STDOUT)
+        @logger.level = Logger::DEBUG
+        #@logger.formatter = AWS::Core::LogFormatter.colored
     end 
 
     def add_hostname()
@@ -33,12 +38,12 @@ class DnsActions
 
             balancer_fqdn = @balancer_hostname + '.' + get_zonename
             ip_address = get_public_ip
-            puts "Adding " + fqdn + " to DNS." 	
+            @logger.debug("Adding " + fqdn + " to DNS.")
             add_or_update( fqdn, @node_ttl, ip_address )
-            puts "Adding " + balancer_fqdn + " to DNS." 	
+            @logger.debug("Adding " + balancer_fqdn + " to DNS.")
             add_or_update( balancer_fqdn, @balancer_ttl, ip_address )
         rescue => err
-            puts "Exception: #{err}"
+            @logger.error("Exception: #{err}")
             err
         end
     end
@@ -49,14 +54,14 @@ class DnsActions
             if(fqdn.nil?)
                 raise "No valid FQDN found."
             end
-            puts "Removing " + fqdn + " from DNS."
+            @logger.debug("Removing " + fqdn + " from DNS.")
             remove_or_update( fqdn, nil ) 
 
             balancer_fqdn = @balancer_hostname + '.' + get_zonename
-            puts "Removing " + balancer_fqdn + " from DNS."
+            @logger.debug("Removing " + balancer_fqdn + " from DNS.")
             remove_or_update( balancer_fqdn, get_public_ip ) 
         rescue => err
-            puts "Exception: #{err}"
+            @logger.error("Exception: #{err}")
             err
         end
     end 
@@ -73,7 +78,7 @@ class DnsActions
                 found_record = true
                 #check to see if the target IP address exists in record.
                 rrset.resource_records.each do |record| 
-                    puts record 
+                    @logger.debug("Found record value: " + record.inspect)
                     if(ip_address.eql? record[:value])
                         found_record_value = true 
                     end
@@ -81,23 +86,34 @@ class DnsActions
             end
 
             if found_record && found_record_value
-                puts "Found record for "+ hostname + ":" + ip_address
-                puts "Do nothing."
+                @logger.debug("Found record for "+ hostname + ":" + ip_address)
+                @logger.debug("Do nothing.")
                 return
             end
 
-            puts "Adding " + hostname + ":" + ip_address + " to DNS." 	
+            @logger.debug("Adding " + hostname + ":" + ip_address + " to DNS.")
 
             if found_record
-                rrset.resource_records.push({:value => ip_address})
-                rrset.update
+                @logger.debug("Adding value: "+ip_address)
+
+                values = []
+                rrset.resource_records.each do |record| 
+                    values << {:value => record[:value]}
+                end
+                values << {:value => ip_address}
+                deleteRequest = AWS::Route53::DeleteRequest.new(hostname,'A', :ttl => ttl, :resource_records => rrset.resource_records )
+                createRequest = AWS::Route53::CreateRequest.new(hostname,'A', :ttl => ttl, :resource_records => values)
+
+                @r53.client.change_resource_record_sets(:hosted_zone_id => @zone_id, :change_batch => {
+                    :comment => "Replacing old dns record",
+                    :changes => [deleteRequest, createRequest] })
                 return
             else
-                rrset = @rrsets.create(hostname, 'A', :ttl => ttl, :resource_records => [{:value => ip_address}])
+                @rrsets.create(hostname, 'A', :ttl => ttl, :resource_records => [{:value => ip_address}])
             end
 
         rescue => err
-            print "Exception: #{err}"
+            @logger.debug("Exception: #{err}")
             err
         end 
     end
@@ -108,39 +124,46 @@ class DnsActions
             rrset = @rrsets[hostname, 'A']
             if(ip_address.nil?)
                 #delete entire record for hostname
+                @logger.debug("No IP address was supplied. Deleting entire record.")
                 if(rrset.exists?)
                     rrset.delete
                 end
             else
-                #update record removing IP address
+                #Check first what do we have to to do
                 found_record = false
                 found_record_value = false
                 if(rrset.exists?)
                     found_record = true
-                    if(rrset.resource_records.length > 1)
-                        #check to see if the target IP address exists in record.
-                        rrset.resource_records.each do |record| 
-                            if(ip_address.eql? record[:value])
-                                found_record_value = true 
-                            end
-                        end 
+                    #check to see if the target IP address exists in record.
+                    rrset.resource_records.each do |record| 
+                        if(ip_address.eql? record[:value])
+                            found_record_value = true 
+                        end
                     end
                 end
 
-                if found_record && found_record_value
+                # .. then do it
+                if found_record && found_record_value && rrset.resource_records.length > 1  
                     puts "Found record for "+ hostname + ":" + ip_address
                     # remove IP and update
                     resource_records = []
                     rrset.resource_records.each do |record| 
                         if(ip_address != record[:value])
-                            resource_records.add(record)
+                            resource_records << record
                         end
                     end
-                    rrset.resource_records = resource_records 
-                    rrset.update
-                    return
-                elsif found_record
+
+                    @logger.debug("Selectively deleting record value for: " + ip_address)
+                    deleteRequest = AWS::Route53::DeleteRequest.new(hostname,'A', :ttl => rrset.ttl, :resource_records => rrset.resource_records )
+                    createRequest = AWS::Route53::CreateRequest.new(hostname,'A', :ttl => rrset.ttl, :resource_records => resource_records)
+
+                    @r53.client.change_resource_record_sets(:hosted_zone_id => @zone_id, :change_batch => {
+                        :comment => "Removing ip from dns record",
+                        :changes => [deleteRequest, createRequest] })    
+                        return
+                elsif found_record && found_record_value
                     # record contains one value
+                    @logger.debug("Deleting entire record since it only contains a single value: " + ip_address)
                     rrset.delete
                 else
                     puts "Did not find record for "+ hostname + ":" + ip_address
@@ -159,7 +182,7 @@ class DnsActions
     def get_zonename()
         begin
             zone_name = nil
-            resp = @dnsClient.client.list_hosted_zones
+            resp = @r53.client.list_hosted_zones
             resp[:hosted_zones].each do |zone|
                 print "Zone: " + zone.inspect + "\n"
                 if( zone[:id] == @zone_id )
