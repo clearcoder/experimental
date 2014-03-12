@@ -1,5 +1,6 @@
 require 'aws-sdk'
 require 'logger'
+require 'digest/md5'
 require File.join(File.dirname(__FILE__), 'utils')
 
 class DnsActions
@@ -10,14 +11,16 @@ class DnsActions
         if defined?(node) #is defined by chef and we need these lines below for debugging outside chef
             dns = node[:dns]
         else
-            dns[:balancer_hostname] = 'balancer1'
-            dns[:balancer_ttl] = 300
-            dns[:node_ttl] = 60 
+            dns[:balancer_hostname] = 'balancer'
+            dns[:node_hostname_prefix] = 'gateway'
+            dns[:balancer_ttl] = 30
+            dns[:node_ttl] = 300 
             dns[:zone_id] = '/hostedzone/Z98DD1X7I9M6Z'
         end
 
         @zone_id = dns[:zone_id]
         @balancer_hostname = dns[:balancer_hostname]
+        @node_hostname_prefix = dns[:node_hostname_prefix]
         @balancer_ttl = dns[:balancer_ttl] 
         @node_ttl = dns[:node_ttl]
 
@@ -195,10 +198,15 @@ class DnsActions
             err
         end 
     end
-
+ 
+    #
+    # Return a fqdn for a node that's made up of a prefix and part of an md5 hash 
+    #
     def get_fqdn()
         begin
-            return get_hostname + "." + get_zonename
+            public_ip = get_public_ip
+            md5hash = Digest::MD5.hexdigest(public_ip)
+            return  @node_hostname_prefix + md5hash[0,16] + "." + get_zonename
         rescue => err
             print "Exception: #{err}"
             err

@@ -18,6 +18,7 @@ module Utils
             err
         end
     end
+
     def get_hostname()
         ip = nil ;
         begin
